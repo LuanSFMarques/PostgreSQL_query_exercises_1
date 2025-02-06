@@ -309,10 +309,141 @@ FROM (
         company_id 
 ) AS job_counts
 LEFT JOIN company_dim AS cd
-    ON cd.company_id = job_counts.company_id   
+    ON cd.company_id = job_counts.company_id   ;
 
 /*
 Find the count of the number of remote job postings per skill
 - display the top 5 skills by their demand in remote jobs
 - include skill ID, name, and count of postings requiring the skill
+- only data analyst and data scientist jobs
 */
+
+WITH remote_job_skills AS (
+    SELECT
+        skill_id,
+        COUNT(*) AS skill_count
+    FROM
+        skills_job_dim AS skills_to_job
+    INNER JOIN job_postings_fact AS job_postings ON job_postings.job_id = skills_to_job.job_id
+    WHERE 
+        job_postings.job_work_from_home = true
+        AND job_postings.job_title_short IN ('Data Analyst','Data Scientist')
+    GROUP BY
+        skill_id 
+)
+SELECT
+    skills.skill_id,
+    skills AS skill_name,
+    skill_count
+FROM remote_job_skills
+INNER JOIN skills_dim AS skills ON skills.skill_id = remote_job_skills.skill_id
+ORDER BY
+    skill_count DESC;
+
+/*
+USING UNION
+*/
+SELECT
+    job_title_short,
+    company_id,
+    job_location
+FROM
+    january_jobs    
+
+UNION ALL -- union keyyy
+
+SELECT
+    job_title_short,
+    company_id,
+    job_location
+FROM
+    february_jobs
+
+UNION ALL
+
+SELECT
+    job_title_short,
+    company_id,
+    job_location
+FROM
+    march_jobs
+
+/*
+UNION PRACTICE PROBLEM 
+- get the corresponding skill and skill type for each job posting in q1
+- includes those without any skills, too
+- why? look at the skills and the type for each job in the first quarter that has a salary > $70.000
+*/
+
+SELECT
+    j_j.job_id,
+    skills,
+    type AS skill_type
+FROM january_jobs AS j_j
+LEFT JOIN skills_job_dim AS sjd ON sjd.job_id = j_j.job_id
+LEFT JOIN skills_dim AS sd ON sd.skill_id = sjd.skill_id
+
+UNION ALL
+
+SELECT
+    f_j.job_id,
+    skills,
+    type AS skill_type
+FROM february_jobs AS f_j
+LEFT JOIN skills_job_dim AS sjd ON sjd.job_id = f_j.job_id
+LEFT JOIN skills_dim AS sd ON sd.skill_id = sjd.skill_id
+
+UNION ALL
+
+SELECT
+    m_j.job_id,
+    skills,
+    type AS skill_type
+FROM march_jobs AS m_j
+LEFT JOIN skills_job_dim AS sjd ON sjd.job_id = m_j.job_id
+LEFT JOIN skills_dim AS sd ON sd.skill_id = sjd.skill_id;
+
+/*
+UNION Practice PROBLEM 2
+find job postings from the first quarter that have a salary greater than
+70k
+- combine job posting tables from the first quarter of 2023
+- gets job postings with an average yearly salary > 70000
+- join all groups in a CTE and order by date post
+*/
+
+WITH first_quarter AS(
+    SELECT
+        job_id,
+        salary_year_avg,
+        job_posted_date
+    FROM january_jobs
+    WHERE
+        salary_year_avg > 70000
+
+    UNION ALL
+
+    SELECT
+        job_id,
+        salary_year_avg,
+        job_posted_date
+    FROM february_jobs
+    WHERE
+        salary_year_avg > 70000
+
+    UNION ALL
+
+    SELECT
+        job_id,
+        salary_year_avg,
+        job_posted_date
+    FROM march_jobs
+    WHERE
+        salary_year_avg > 70000
+)
+SELECT 
+    *
+FROM first_quarter
+ORDER BY
+    job_posted_date;   
+
